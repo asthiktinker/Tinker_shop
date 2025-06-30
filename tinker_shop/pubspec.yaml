@@ -1,0 +1,47 @@
+name: tinkerspace_app
+description: A Flutter app for TinkerSpace.in with API integration
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # HTTP client for API calls
+  http: ^1.2.1
+  
+  # State management (optional, for advanced state handling)
+  provider: ^6.0.5
+  
+  # For environment variables (optional, for API keys)
+  flutter_dotenv: ^5.1.0
+  
+  # For local storage/caching (optional)
+  shared_preferences: ^2.2.2
+  
+  # For network image caching (optional)
+  cached_network_image: ^3.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Add your assets here
+  assets:
+    - assets/images/
+    - .env  # For environment variables
+
+  # Add custom fonts if needed
+  # fonts:
+  #   - family: CustomFont
+  #     fonts:
+  #       - asset: assets/fonts/CustomFont-Regular.ttf
