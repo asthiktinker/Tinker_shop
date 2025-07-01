@@ -26,11 +26,17 @@ dependencies:
   
   # For network image caching (optional)
   cached_network_image: ^3.3.1
+  
+  # For URL launching
+  url_launcher: ^6.3.0
+  
+  # For carousel slider
+  carousel_slider: ^5.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

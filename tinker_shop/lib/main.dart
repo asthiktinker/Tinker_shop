@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import 'package:carousel_slider/carousel_slider.dart' as cs;
+import 'package:url_launcher/url_launcher.dart';
 
 void main() => runApp(const TinkerSpaceApp());
 
@@ -213,16 +215,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.search, color: Colors.white),
-            label: const Text('Search Products', style: TextStyle(color: Colors.white)),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 10),
-          // IconButton(
-          //   icon: const Icon(Icons.shopping_cart, color: Colors.white),
-          //   onPressed: () {},
-          // ),
+          _buildSearchWidget(context, screenWidth),
           const SizedBox(width: 20),
         ],
       ),
@@ -354,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // Product Grid
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(screenWidth > 600 ? 20 : 12),
                 decoration: BoxDecoration(
                   color: AppColors.sectionBg,
                   borderRadius: BorderRadius.circular(10),
@@ -365,10 +358,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Top Products & Our Shop',
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: screenWidth > 600 ? 24 : 20,
                             fontWeight: FontWeight.bold,
                             color: AppColors.textDark,
                           ),
@@ -473,64 +466,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               const SizedBox(height: 20),
-
-              // Footer
-              Container(
-                color: AppColors.headerFooter,
-                padding: const EdgeInsets.all(30),
-                child: Column(
-                  children: [
-                    const Text(
-                      'TinkerSpace.in',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth > 768) {
-                          return const FooterRowDesktop();
-                        } else {
-                          return const FooterColumnMobile();
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    const Divider(color: Colors.white24),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          '© 2024 TinkerSpace.in - Help Center',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        Row(
-                          children: [
-                            TextButton(
-                              onPressed: () {},
-                              child: const Text(
-                                'Terms & Service',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {},
-                              child: const Text(
-                                'Privacy & Policy',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              const Footer(),
             ],
           ),
         ),
@@ -541,6 +477,34 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const Icon(Icons.chat, color: Colors.white),
       ),
     );
+  }
+
+  Widget _buildSearchWidget(BuildContext context, double screenWidth) {
+    final searchButton = TextButton.icon(
+      icon: const Icon(Icons.search, color: Colors.white),
+      label: const Text('Search Products',
+          style: TextStyle(color: Colors.white)),
+      onPressed: () => _openSearch(context),
+    );
+
+    final searchIcon = IconButton(
+      icon: const Icon(Icons.search, color: Colors.white),
+      tooltip: 'Search Products',
+      onPressed: () => _openSearch(context),
+    );
+
+    return screenWidth > 700 ? searchButton : searchIcon;
+  }
+
+  void _openSearch(BuildContext context) async {
+    final selectedProduct = await showSearch<Map<String, dynamic>?>(
+      context: context,
+      delegate: ProductSearchDelegate(products),
+    );
+
+    if (selectedProduct != null && selectedProduct.isNotEmpty) {
+      _showProductDetails(selectedProduct);
+    }
   }
 
   Widget _buildDropdown({
@@ -686,7 +650,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ElevatedButton(
                     onPressed: inStock ? () {
                       // Handle buy now action
-                      _showProductDialog(product);
+                      _showProductDetails(product);
                     } : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryButton,
@@ -709,44 +673,410 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showProductDialog(Map<String, dynamic> product) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(product['title'] ?? 'Product'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+  void _showProductDetails(Map<String, dynamic> product) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ProductDetailScreen(product: product),
+      ),
+    );
+  }
+}
+
+class ProductSearchDelegate extends SearchDelegate<Map<String, dynamic>?> {
+  final List<Map<String, dynamic>> allProducts;
+
+  ProductSearchDelegate(this.allProducts);
+
+  @override
+  ThemeData appBarTheme(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.copyWith(
+      appBarTheme: AppBarTheme(
+        backgroundColor: AppColors.headerFooter,
+        iconTheme: theme.primaryIconTheme.copyWith(color: Colors.white),
+        titleTextStyle: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        hintStyle: TextStyle(color: Colors.white70),
+        border: InputBorder.none,
+      ),
+    );
+  }
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [
+      if (query.isNotEmpty)
+        IconButton(
+          tooltip: 'Clear',
+          icon: const Icon(Icons.clear),
+          onPressed: () => query = '',
+        ),
+    ];
+  }
+
+  @override
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(
+      tooltip: 'Back',
+      icon: const Icon(Icons.arrow_back),
+      onPressed: () => close(context, null),
+    );
+  }
+
+  @override
+  Widget buildResults(BuildContext context) {
+    return _buildSearchResults();
+  }
+
+  @override
+  Widget buildSuggestions(BuildContext context) {
+    return _buildSearchResults();
+  }
+
+  Widget _buildSearchResults() {
+    final filtered = allProducts.where((product) {
+      final title = product['title']?.toString().toLowerCase() ?? '';
+      final description = product['description']?.toString().toLowerCase() ?? '';
+      final searchQuery = query.toLowerCase();
+
+      return title.contains(searchQuery) || description.contains(searchQuery);
+    }).toList();
+
+    return Container(
+      color: AppColors.background,
+      child: ListView.builder(
+        itemCount: filtered.length,
+        itemBuilder: (context, index) {
+          final product = filtered[index];
+          return ListTile(
+            title: Text(product['title'] ?? 'Product'),
+            subtitle: Text(
+              product['description'] ?? 'No description',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onTap: () {
+              close(context, product);
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ProductDetailScreen extends StatelessWidget {
+  final Map<String, dynamic> product;
+
+  const ProductDetailScreen({super.key, required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> images = [
+      'assets/images/product1.jpg',
+      'assets/images/product2.jpg',
+      'assets/images/product3.jpg',
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(product['title'] ?? 'Product Details'),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image Carousel
+            cs.CarouselSlider(
+              options: cs.CarouselOptions(
+                height: 300,
+                autoPlay: true,
+                aspectRatio: 16 / 9,
+                viewportFraction: 1.0,
+              ),
+              items: images.map((image) {
+                return Builder(
+                  builder: (BuildContext context) {
+                    return Container(
+                      width: MediaQuery.of(context).size.width,
+                      margin: const EdgeInsets.symmetric(horizontal: 5.0),
+                      decoration: BoxDecoration(
+                        color: AppColors.sectionBg,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Image.asset(
+                        image,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.science,
+                            size: 80,
+                            color: AppColors.textDark,
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              }).toList(),
+            ),
+
+            // Product Info
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['title'] ?? 'No Title',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Price: ${product['price'] ?? '₹0'}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.headerFooter,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    product['description'] ?? 'No description available',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              _showEnquiryForm(context, product, 'Get Product'),
+                          icon: const Icon(Icons.shopping_cart),
+                          label: const Text('Get Product'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryButton,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showEnquiryForm(
+                              context, product, 'Customize Product'),
+                          icon: const Icon(Icons.build),
+                          label: const Text('Customize'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.highlight,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Footer(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class Footer extends StatelessWidget {
+  const Footer({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.headerFooter,
+      padding: const EdgeInsets.all(30),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'TinkerSpace.in',
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 20),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth > 768) {
+                return const FooterRowDesktop();
+              } else {
+                return const FooterColumnMobile();
+              }
+            },
+          ),
+          const SizedBox(height: 20),
+          const Divider(color: Colors.white24),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Price: ${product['price'] ?? 'N/A'}'),
-              const SizedBox(height: 8),
-              Text('Description: ${product['description'] ?? 'N/A'}'),
-              const SizedBox(height: 8),
-              Text('Product ID: ${product['tag'] ?? product['id'] ?? 'N/A'}'),
+              const Text(
+                '© 2024 TinkerSpace.in - Help Center',
+                style: TextStyle(color: Colors.white70),
+              ),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text(
+                      'Terms & Service',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {},
+                    child: const Text(
+                      'Privacy & Policy',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
+        ],
+      ),
+    );
+  }
+}
+
+void _showEnquiryForm(
+    BuildContext context, Map<String, dynamic> product, String enquiryType) {
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
+  final detailsController = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('$enquiryType Enquiry'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Name',
+                border: OutlineInputBorder(),
+              ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                // Handle actual purchase
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${product['title']} added to cart!'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-              },
-              child: const Text('Add to Cart'),
+            const SizedBox(height: 15),
+            TextField(
+              controller: phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: detailsController,
+              decoration: const InputDecoration(
+                labelText: 'Additional Details',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
             ),
           ],
-        );
-      },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            _submitEnquiry(
+              nameController.text,
+              phoneController.text,
+              detailsController.text,
+              product,
+              enquiryType,
+              context,
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Submit Enquiry'),
+        ),
+      ],
+    ),
+  );
+}
+
+void _submitEnquiry(
+  String name,
+  String phone,
+  String details,
+  Map<String, dynamic> product,
+  String enquiryType,
+  BuildContext context,
+) async {
+  if (name.isEmpty || phone.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please fill all required fields'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  const String shopOwnerWhatsAppNumber = "6364063644";
+  const String countryCode = "91";
+
+  final productTitle = product['title'] ?? 'Product';
+  final productPrice = product['price'] ?? '₹0';
+
+  final message = '''
+*New Product Enquiry*
+
+Name: $name
+Phone: $phone
+Product: $productTitle
+Price: $productPrice
+Enquiry Type: $enquiryType
+
+Additional Details:
+$details
+''';
+
+  final encodedMessage = Uri.encodeComponent(message);
+  final whatsappUrl =
+      "https://wa.me/$countryCode$shopOwnerWhatsAppNumber?text=$encodedMessage";
+
+  if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
+    await launchUrl(Uri.parse(whatsappUrl));
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Could not launch WhatsApp'),
+        backgroundColor: Colors.red,
+      ),
     );
   }
 }
